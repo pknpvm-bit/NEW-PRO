@@ -75,6 +75,20 @@ jobs:
                   encoding="utf-8",
               )
 
+          gradle_props = project_root / "gradle.properties"
+          required_props = {
+              "org.gradle.jvmargs": "-Xmx2048m -Dfile.encoding=UTF-8",
+              "android.useAndroidX": "true",
+              "kotlin.code.style": "official",
+              "android.nonTransitiveRClass": "true",
+          }
+          existing_props = gradle_props.read_text(encoding="utf-8") if gradle_props.exists() else ""
+          lines = [existing_props.rstrip()] if existing_props.strip() else []
+          for key, val in required_props.items():
+              if f"{key}=" not in existing_props:
+                  lines.append(f"{key}={val}")
+          gradle_props.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
           snippet = '''
           tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
               compilerOptions.freeCompilerArgs.add("-XXLanguage:+BreakContinueInInlineLambdas")
