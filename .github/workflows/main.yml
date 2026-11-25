@@ -27,23 +27,53 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
 
-      - name: Locate Gradle root & enable BreakContinueInInlineLambdas
+      - name: Prepare Gradle files & enable BreakContinueInInlineLambdas
         run: |
           python3 - << 'PY'
           import os
           from pathlib import Path
 
-          settings_matches = list(Path(".").rglob("settings.gradle.kts")) + list(Path(".").rglob("settings.gradle"))
-          if not settings_matches:
-              raise FileNotFoundError("Could not find settings.gradle.kts or settings.gradle in the repository.")
+          app_matches = list(Path(".").rglob("app/build.gradle.kts"))
+          if not app_matches:
+              raise FileNotFoundError("Could not find app/build.gradle.kts anywhere in the repository.")
 
-          project_root = settings_matches[0].parent.resolve()
-          app_gradle = project_root / "app" / "build.gradle.kts"
-          if not app_gradle.exists():
-              app_matches = list(Path(".").rglob("app/build.gradle.kts"))
-              if not app_matches:
-                  raise FileNotFoundError("Could not find app/build.gradle.kts in the repository.")
-              app_gradle = app_matches[0]
+          app_gradle = app_matches[0].resolve()
+          project_root = app_gradle.parent.parent
+
+          settings_kts = project_root / "settings.gradle.kts"
+          settings_groovy = project_root / "settings.gradle"
+          if not settings_kts.exists() and not settings_groovy.exists():
+              settings_kts.write_text(
+                  'pluginManagement {\n'
+                  '    repositories {\n'
+                  '        google()\n'
+                  '        mavenCentral()\n'
+                  '        gradlePluginPortal()\n'
+                  '    }\n'
+                  '}\n'
+                  'dependencyResolutionManagement {\n'
+                  '    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)\n'
+                  '    repositories {\n'
+                  '        google()\n'
+                  '        mavenCentral()\n'
+                  '    }\n'
+                  '}\n'
+                  f'rootProject.name = "{project_root.name}"\n'
+                  'include(":app")\n',
+                  encoding="utf-8",
+              )
+
+          root_build_kts = project_root / "build.gradle.kts"
+          root_build_groovy = project_root / "build.gradle"
+          if not root_build_kts.exists() and not root_build_groovy.exists():
+              root_build_kts.write_text(
+                  'plugins {\n'
+                  '    id("com.android.application") version "8.5.2" apply false\n'
+                  '    id("org.jetbrains.kotlin.android") version "2.0.21" apply false\n'
+                  '    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false\n'
+                  '}\n',
+                  encoding="utf-8",
+              )
 
           snippet = '''
           tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
