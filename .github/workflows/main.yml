@@ -27,18 +27,23 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
 
-      - name: Locate project & enable BreakContinueInInlineLambdas
+      - name: Locate Gradle root & enable BreakContinueInInlineLambdas
         run: |
           python3 - << 'PY'
           import os
           from pathlib import Path
 
-          matches = list(Path(".").rglob("app/build.gradle.kts"))
-          if not matches:
-              raise FileNotFoundError("Could not find app/build.gradle.kts anywhere in the repository.")
+          settings_matches = list(Path(".").rglob("settings.gradle.kts")) + list(Path(".").rglob("settings.gradle"))
+          if not settings_matches:
+              raise FileNotFoundError("Could not find settings.gradle.kts or settings.gradle in the repository.")
 
-          gradle_file = matches[0]
-          project_root = gradle_file.parent.parent.resolve()
+          project_root = settings_matches[0].parent.resolve()
+          app_gradle = project_root / "app" / "build.gradle.kts"
+          if not app_gradle.exists():
+              app_matches = list(Path(".").rglob("app/build.gradle.kts"))
+              if not app_matches:
+                  raise FileNotFoundError("Could not find app/build.gradle.kts in the repository.")
+              app_gradle = app_matches[0]
 
           snippet = '''
           tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
@@ -46,14 +51,14 @@ jobs:
           }
           '''.strip() + "\n"
 
-          content = gradle_file.read_text(encoding="utf-8")
+          content = app_gradle.read_text(encoding="utf-8")
           if "BreakContinueInInlineLambdas" not in content:
-              gradle_file.write_text(content + "\n" + snippet, encoding="utf-8")
+              app_gradle.write_text(content + "\n" + snippet, encoding="utf-8")
 
           env_file = Path(os.environ["GITHUB_ENV"])
           with env_file.open("a", encoding="utf-8") as f:
               f.write(f"PROJECT_DIR={project_root}\n")
-              f.write(f"APK_OUTPUT_DIR={gradle_file.parent / 'build' / 'outputs' / 'apk' / 'debug'}\n")
+              f.write(f"APK_OUTPUT_DIR={app_gradle.parent / 'build' / 'outputs' / 'apk' / 'debug'}\n")
           PY
 
       - name: Build Debug APK
