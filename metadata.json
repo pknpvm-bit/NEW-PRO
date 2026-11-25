@@ -1,0 +1,6 @@
+{
+  "name": "BSP-SMS Android",
+  "description": "Android WebView and automation tools for the Banglar Shiksha SMS Portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
